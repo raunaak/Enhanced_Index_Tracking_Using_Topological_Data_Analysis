@@ -24,7 +24,9 @@ total_period = insample_period + outsample_period
 
 
 #Portfolio Metrics
-stats = pd.DataFrame()
+insample_performance = pd.DataFrame()
+outsample_performance = pd.DataFrame()
+
 '''
 stats['Annualized Returns(%)'] = daily_returns.mean() * number_of_days * 100
 stats['Annualized Volatility(%)'] = daily_returns.std() * np.sqrt(number_of_days) * 100
@@ -34,11 +36,19 @@ print('Assets Classes Annualized Statistics - full observation period')
 stats.style.bar(color=['red', 'green'], align='zero')
 '''
 
-#Rolling Window
+# Rolling Window
 for i in range(total_period, datos.shape[0], outsample_period):
-    #current period data
-    current_data = current_data[i-total_period:total_period]
+
+    # Current Period Data
+    current_data = datos[i-total_period:i]
+
     # Daily Returns
     daily_returns = np.log(current_data / current_data.shift(1))
     daily_returns.dropna(inplace=True)
-    
+
+    # Portfolio Creation
+    weights = np.random.rand(datos.shape[1]) #strategy(daily_returns[:insample_period])
+
+    #Portfolio Metrics
+    insample_performance.append(portfolio_performance(daily_returns[:insample_period]))
+    outsample_performance.append(portfolio_performance(daily_returns[insample_period:]))
