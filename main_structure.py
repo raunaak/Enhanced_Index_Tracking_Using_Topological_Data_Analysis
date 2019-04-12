@@ -52,34 +52,59 @@ for i in range(parameters.TOTAL_PERIOD, datos.shape[0], parameters.OUTSAMPLE_PER
     weights = np.random.rand(datos.shape[1])
 
 
-    # Portfolio Metrics for every outsample window
-    insample_performance.append(
-        metrics.portfolio_performance(weights, daily_returns.values[:parameters.INSAMPLE_PERIOD,:]))
-    outsample_performance.append(
-        metrics.portfolio_performance(weights, daily_returns.values[parameters.INSAMPLE_PERIOD:, :], overall_outsample_returns))
+    if (parameters.STOCK_INDEX_COLUMN_NAME == None):
+        # Portfolio Metrics for every outsample window
+        insample_performance.append(
+            metrics.portfolio_performance(weights, daily_returns.values[:parameters.INSAMPLE_PERIOD, :]))
+        outsample_performance.append(
+            metrics.portfolio_performance(weights, daily_returns.values[parameters.INSAMPLE_PERIOD:, :],
+                                          overall_outsample_returns))
 
-    if (parameters.STOCK_INDEX_COLUMN_NAME != None):
+        '''# Index Metrics for every outsample window
         insample_index_performance.append(
             metrics.portfolio_performance(np.array([1]), daily_index_returns.values[:parameters.INSAMPLE_PERIOD, :]))
         outsample_index_performance.append(
-            metrics.portfolio_performance(np.array([1]), daily_index_returns.values[parameters.INSAMPLE_PERIOD:, :], overall_index_outsample_returns))
+            metrics.portfolio_performance(np.array([1]), daily_index_returns.values[parameters.INSAMPLE_PERIOD:, :], overall_index_outsample_returns))'''
+    else:
+        # Compare portfolio and index metrics for every outsample period
+        insample_statistics, insample_index_statistics = metrics.portfolio_performance_comparison_with_index(weights,
+                                                                                                             daily_returns.values[:parameters.INSAMPLE_PERIOD, :],
+                                                                                                             np.array([1]),
+                                                                                                             daily_index_returns.values[:parameters.INSAMPLE_PERIOD, :])
+        insample_performance.append(insample_statistics)
+        insample_index_performance.append(insample_index_statistics)
+
+        outsample_statistics, outsample_index_statistics = metrics.portfolio_performance_comparison_with_index(weights,
+                                                                                                               daily_returns.values[parameters.INSAMPLE_PERIOD:,:],
+                                                                                                               np.array([1]),
+                                                                                                               daily_index_returns.values[parameters.INSAMPLE_PERIOD:,:],
+                                                                                                               overall_outsample_returns,
+                                                                                                               overall_index_outsample_returns)
+        outsample_performance.append(outsample_statistics)
+        outsample_index_performance.append(outsample_index_statistics)
 
 
 # Average portfolio metrics
 metrics.average_metrics(insample_performance)
 metrics.average_metrics(outsample_performance)
 
-metrics.average_metrics(insample_index_performance)
-metrics.average_metrics(outsample_index_performance)
+if (parameters.STOCK_INDEX_COLUMN_NAME != None):
+    metrics.average_metrics(insample_index_performance)
+    metrics.average_metrics(outsample_index_performance)
 
 
 # Save metrics as csv
-metrics.save_list_to_csv(insample_performance, os.path.join(parameters.RESULT_DIRECTORY, parameters.STOCK_INDEX + '_insample.csv'))
-metrics.save_list_to_csv(outsample_performance, os.path.join(parameters.RESULT_DIRECTORY, parameters.STOCK_INDEX + '_outsample.csv'))
-
 if(parameters.STOCK_INDEX_COLUMN_NAME != None):
-    metrics.save_list_to_csv(insample_index_performance, os.path.join(parameters.RESULT_DIRECTORY, parameters.STOCK_INDEX + 'insample_index.csv'))
-    metrics.save_list_to_csv(outsample_index_performance, os.path.join(parameters.RESULT_DIRECTORY, parameters.STOCK_INDEX + 'outsample_index.csv'))
+    columns = (metrics.SIMPLE_STAT_FUNCS + metrics.COMPARITIVE_STAT_FUNCS)
+else:
+    columns = (metrics.SIMPLE_STAT_FUNCS)
+metrics.save_list_to_csv(insample_performance, os.path.join(parameters.RESULT_DIRECTORY, parameters.STOCK_INDEX + '_insample.csv'), columns = columns)
+metrics.save_list_to_csv(outsample_performance, os.path.join(parameters.RESULT_DIRECTORY, parameters.STOCK_INDEX + '_outsample.csv'), columns = columns)
+
+columns = (metrics.SIMPLE_STAT_FUNCS)
+if(parameters.STOCK_INDEX_COLUMN_NAME != None):
+    metrics.save_list_to_csv(insample_index_performance, os.path.join(parameters.RESULT_DIRECTORY, parameters.STOCK_INDEX + '_insample_index.csv'), columns = columns)
+    metrics.save_list_to_csv(outsample_index_performance, os.path.join(parameters.RESULT_DIRECTORY, parameters.STOCK_INDEX + '_outsample_index.csv'), columns = columns)
 
 
 # Generate graph containing time vs portfolio value to compare portfolio and index portfolio
