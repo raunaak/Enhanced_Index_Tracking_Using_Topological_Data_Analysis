@@ -4,6 +4,7 @@ import scipy
 import pandas as pd
 import math
 from matplotlib import pyplot as plt
+import parameters
 
 SIMPLE_STAT_FUNCS = [
     'annual_return',
@@ -59,7 +60,7 @@ def generate_graph_portfolio_values(portfolio_returns, index_returns, xaxis, tit
     xaxis.append(xaxis[-1])
     plt.plot(xaxis, portfolio_value)
 
-    if(index_returns != None):
+    if(parameters.STOCK_INDEX_COLUMN_NAME != None):
         index_values = generate_portfolio_from_returns(index_returns)
         plt.plot(xaxis, index_values)
         plt.legend(['Portfolio Value', 'Index Value'])
