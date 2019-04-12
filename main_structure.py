@@ -12,7 +12,7 @@ import os
 
 
 # Read data
-index_datos, datos = reader.read_csv_or_excel_file(parameters.STOCK_INDEX + '.xlsx', index_col ='Time', )
+index_datos, datos = reader.read_csv_or_excel_file(parameters.INPUT_FILENAME, index_col = parameters.INDEX_COLUMN_NAME)
 
 
 # Portfolio Metrics
@@ -30,9 +30,9 @@ for i in range(parameters.TOTAL_PERIOD, datos.shape[0], parameters.OUTSAMPLE_PER
     current_data = datos.iloc[i-parameters.TOTAL_PERIOD:i]
 
     if(parameters.STOCK_INDEX_COLUMN_NAME != None):
-        current_index_data = datos.iloc[i-parameters.TOTAL_PERIOD:i]
+        current_index_data = index_datos.iloc[i-parameters.TOTAL_PERIOD:i]
 
-    overall_outsample_time.extend(datos.index.get_values()[i-parameters.OUTSAMPLE_PERIOD:i])
+    overall_outsample_time.extend(datos.index.get_values()[i-parameters.OUTSAMPLE_PERIOD+1:i])
 
 
     # Daily Returns
@@ -56,13 +56,13 @@ for i in range(parameters.TOTAL_PERIOD, datos.shape[0], parameters.OUTSAMPLE_PER
     insample_performance.append(
         metrics.portfolio_performance(weights, daily_returns.values[:parameters.INSAMPLE_PERIOD,:]))
     outsample_performance.append(
-        metrics.portfolio_performance(weights, daily_returns.values[parameters.INSAMPLE_PERIOD:, :]), overall_outsample_returns)
+        metrics.portfolio_performance(weights, daily_returns.values[parameters.INSAMPLE_PERIOD:, :], overall_outsample_returns))
 
     if (parameters.STOCK_INDEX_COLUMN_NAME != None):
         insample_index_performance.append(
             metrics.portfolio_performance(np.array([1]), daily_index_returns.values[:parameters.INSAMPLE_PERIOD, :]))
         outsample_index_performance.append(
-            metrics.portfolio_performance(np.array([1]), daily_index_returns.values[parameters.INSAMPLE_PERIOD:, :]), overall_index_outsample_returns)
+            metrics.portfolio_performance(np.array([1]), daily_index_returns.values[parameters.INSAMPLE_PERIOD:, :], overall_index_outsample_returns))
 
 
 # Average portfolio metrics
@@ -74,11 +74,12 @@ metrics.average_metrics(outsample_index_performance)
 
 
 # Save metrics as csv
-metrics.save_list_to_csv(insample_performance, os.path.join(parameters.RESULT_DIRECTORY, 'insample_' + parameters.STOCK_INDEX + '.csv'))
-metrics.save_list_to_csv(outsample_performance, os.path.join(parameters.RESULT_DIRECTORY, 'outsample_' + parameters.STOCK_INDEX + '.csv'))
+metrics.save_list_to_csv(insample_performance, os.path.join(parameters.RESULT_DIRECTORY, parameters.STOCK_INDEX + '_insample.csv'))
+metrics.save_list_to_csv(outsample_performance, os.path.join(parameters.RESULT_DIRECTORY, parameters.STOCK_INDEX + '_outsample.csv'))
 
-metrics.save_list_to_csv(insample_index_performance, os.path.join(parameters.RESULT_DIRECTORY, 'insample_index_' + parameters.STOCK_INDEX + '.csv'))
-metrics.save_list_to_csv(outsample_index_performance, os.path.join(parameters.RESULT_DIRECTORY, 'outsample_index_' + parameters.STOCK_INDEX + '.csv'))
+if(parameters.STOCK_INDEX_COLUMN_NAME != None):
+    metrics.save_list_to_csv(insample_index_performance, os.path.join(parameters.RESULT_DIRECTORY, parameters.STOCK_INDEX + 'insample_index.csv'))
+    metrics.save_list_to_csv(outsample_index_performance, os.path.join(parameters.RESULT_DIRECTORY, parameters.STOCK_INDEX + 'outsample_index.csv'))
 
 
 # Generate graph containing time vs portfolio value to compare portfolio and index portfolio
