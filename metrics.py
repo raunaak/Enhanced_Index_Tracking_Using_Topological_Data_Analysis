@@ -18,13 +18,24 @@ SIMPLE_STAT_FUNCS = [
     'stats.skew',
     'stats.kurtosis',
     'tail_ratio',
-    'cagr'
+    'cagr',
+]
+
+COMPARITIVE_STAT_FUNCS = [
+    'excess_sharpe',
+    'alpha',
+    'beta'
+]
+
+CUMULATIVE_STAT_FUNCS = [
+    'value_at_risk',
+    'conditional_value_at_risk'
 ]
 
 # Performance of a portfolio
 def portfolio_performance(weights, daily_returns, overall_returns = None):
     returns = np.matmul(daily_returns, weights)
-
+    # Add statistics present in SIMPLE_STAT_FUNCS
     statistics = []
     statistics.append(stats.annual_return(returns))
     statistics.append(stats.annual_volatility(returns))
@@ -50,8 +61,8 @@ def average_metrics(performance):
 
 
 # Save list of lists to csv
-def save_list_to_csv(performance, filepath):
-    pd.DataFrame(performance, columns=SIMPLE_STAT_FUNCS).to_csv(filepath)
+def save_list_to_csv(performance, filepath, columns):
+    pd.DataFrame(performance, columns=columns).to_csv(filepath)
 
 
 # Generate graph from returns and compare with index returns
@@ -78,3 +89,22 @@ def generate_portfolio_from_returns(returns):
     for x in returns:
         portfolio.append(portfolio[-1] * math.exp(x))
     return portfolio
+
+
+# Performance of a portfolio compared with index returns
+def portfolio_performance_comparison_with_index(weights, daily_returns, index_weights, index_daily_returns, overall_returns = None, overall_index_returns = None):
+    statistics = portfolio_performance(weights, daily_returns, overall_returns)
+    returns = np.matmul(daily_returns, weights)
+
+    index_statistics = portfolio_performance(index_weights, index_daily_returns, overall_index_returns)
+    index_returns = np.matmul(index_daily_returns, index_weights)
+
+    # Add statistics present in COMPARATIVE_STAT_FUNCS
+    comparative_statistics = []
+    comparative_statistics.append(stats.excess_sharpe(returns, index_returns))
+    comparative_statistics.append(stats.alpha(returns, index_returns))
+    comparative_statistics.append(stats.beta(returns, index_returns))
+
+    statistics.extend(comparative_statistics)
+
+    return statistics, index_statistics
