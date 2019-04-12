@@ -15,4 +15,7 @@ INPUT_DIRECTORY = 'Stock_Data'
 # Parameters used for reading stock_index (filename)
 # and stock_index_column_name (column containing index)
 STOCK_INDEX = 's&p500'
-STOCK_INDEX_COLUMN_NAME = None
+STOCK_INDEX_COLUMN_NAME = None #'S&P 500 COMPOSITE - PRICE INDEX'
+INPUT_FILEEXTENSION = '.xlsx'
+INPUT_FILENAME = STOCK_INDEX + INPUT_FILEEXTENSION
+INDEX_COLUMN_NAME = 'Time'
