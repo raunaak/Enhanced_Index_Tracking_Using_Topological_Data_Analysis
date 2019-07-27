@@ -6,25 +6,33 @@ import math
 from matplotlib import pyplot as plt
 import parameters
 
+'''
+Always redefine portfolio metrics based on SIMPLE_STAT_FUNCS, COMPARITIVE_STAT_FUNCS
+'''
+
 SIMPLE_STAT_FUNCS = [
     'annual_return',
     'annual_volatility',
     'sharpe_ratio',
-    'calmar_ratio',
+    #'calmar_ratio',
     #'stability_of_timeseries',
     #'max_drawdown',
-    'omega_ratio',
-    'sortino_ratio',
-    'stats.skew',
-    'stats.kurtosis',
-    'tail_ratio',
-    'cagr',
+    #'omega_ratio',
+    #'sortino_ratio',
+    'skewness',
+    'kurtosis',
+#    'cagr',
 ]
 
 COMPARITIVE_STAT_FUNCS = [
     'excess_sharpe',
+    'excess_sortino',
+    'excess_omega',
+    'excess_calmar',
+    'excess_tail',
     'alpha',
-    'beta'
+    'beta',
+    'Non-Zero Weights'
 ]
 
 CUMULATIVE_STAT_FUNCS = [
@@ -40,15 +48,15 @@ def portfolio_performance(weights, daily_returns, overall_returns = None):
     statistics.append(stats.annual_return(returns))
     statistics.append(stats.annual_volatility(returns))
     statistics.append(stats.sharpe_ratio(returns))
-    statistics.append(stats.calmar_ratio(returns))
+    #statistics.append(stats.calmar_ratio(returns))
     #statistics.append(stats.stability_of_timeseries(returns))
     #statistics.append(stats.max_drawdown(returns))
-    statistics.append(stats.omega_ratio(returns))
-    statistics.append(stats.sortino_ratio(returns))
+    #statistics.append(stats.omega_ratio(returns))
+    #statistics.append(stats.sortino_ratio(returns))
     statistics.append(scipy.stats.skew(returns))
     statistics.append(scipy.stats.kurtosis(returns))
-    statistics.append(stats.tail_ratio(returns))
-    statistics.append(stats.cagr(returns))
+    #statistics.append(stats.tail_ratio(returns))
+    #statistics.append(stats.cagr(returns))
 
     if(overall_returns!=None):
         overall_returns.extend(returns)
@@ -87,7 +95,7 @@ def generate_graph_portfolio_values(portfolio_returns, index_returns, xaxis, tit
 def generate_portfolio_from_returns(returns):
     portfolio = [1]
     for x in returns:
-        portfolio.append(portfolio[-1] * math.exp(x))
+        portfolio.append(portfolio[-1] * (1+x))
     return portfolio
 
 
@@ -102,9 +110,13 @@ def portfolio_performance_comparison_with_index(weights, daily_returns, index_we
     # Add statistics present in COMPARATIVE_STAT_FUNCS
     comparative_statistics = []
     comparative_statistics.append(stats.excess_sharpe(returns, index_returns))
+    comparative_statistics.append(stats.sortino_ratio(returns) - stats.sortino_ratio(index_returns))
+    comparative_statistics.append(stats.omega_ratio(returns) - stats.omega_ratio(index_returns))
+    comparative_statistics.append(stats.calmar_ratio(returns) - stats.calmar_ratio(index_returns))
+    comparative_statistics.append(stats.tail_ratio(returns) - stats.tail_ratio(index_returns))
     comparative_statistics.append(stats.alpha(returns, index_returns))
     comparative_statistics.append(stats.beta(returns, index_returns))
-
+    comparative_statistics.append(np.count_nonzero(weights))
     statistics.extend(comparative_statistics)
 
     return statistics, index_statistics
