@@ -1,113 +1,85 @@
-#https://medium.com/@mariano.scandizzo/strategic-asset-allocation-with-python-c9afef392e90
-#The aim of this file is to understand implementation of portfolio metrics in a rolling window scenario
+"""
+Run this file to generate output
+"""
+
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import parameters
 import metrics
 import reader
-import os
 import strategy
-#import seaborn as sns; sns.set()
-#plt.style.use('ggplot')
 
 
-# Read data
-index_datos, datos = reader.read_csv_or_excel_file(parameters.INPUT_FILENAME, index_col = parameters.INDEX_COLUMN_NAME)
+def main():
+    """
+    Main function for the computation engine
+    """
+    # Read data
+    index_complete_data, constituent_complete_data = \
+        reader.read_csv_or_excel_file(parameters.INPUT_FILENAME,
+                                      index_col=parameters.INDEX_COLUMN_NAME)
 
+    # Outsample Returns
+    overall_outsample_returns, overall_index_outsample_returns = list([]), list([])
+    overall_outsample_time = list([])
 
-# Portfolio Metrics
-insample_performance, insample_index_performance  = [], []
-outsample_performance, outsample_index_performance = [], []
+    # Outsample Returns during 'UP' and 'DOWN' phases
+    up_overall_outsample_returns, up_overall_index_outsample_returns = list([]), list([])
+    down_overall_outsample_returns, down_overall_index_outsample_returns = list([]), list([])
 
-#Outsample Returns
-overall_outsample_returns, overall_index_outsample_returns = [], []
-overall_outsample_time = []
+    # Store previous weights
+    previous_weights = None
 
-#Store previous weights
-previous_weights = None
+    # Rolling Window
+    for i in range(parameters.TOTAL_PERIOD, constituent_complete_data.shape[0], parameters.OUTSAMPLE_PERIOD):
+        # Current Period Data
+        current_data = constituent_complete_data.iloc[i - parameters.TOTAL_PERIOD:i]
 
-# Rolling Window
-for i in range(parameters.TOTAL_PERIOD, datos.shape[0], parameters.OUTSAMPLE_PERIOD):
+        if parameters.STOCK_INDEX_COLUMN_NAME is not None:
+            current_index_data = index_complete_data.iloc[i - parameters.TOTAL_PERIOD:i]
 
-    # Current Period Data
-    current_data = datos.iloc[i-parameters.TOTAL_PERIOD:i]
+        overall_outsample_time.extend(constituent_complete_data.index.get_values()[i - parameters.OUTSAMPLE_PERIOD + 1:i])
 
-    if(parameters.STOCK_INDEX_COLUMN_NAME != None):
-        current_index_data = index_datos.iloc[i-parameters.TOTAL_PERIOD:i]
+        # Daily Returns
+        daily_returns = current_data.div(current_data.shift(1))-1
+        daily_returns.dropna(inplace=True, how='all')
+        daily_returns.fillna(0.0, inplace=True)
 
-    overall_outsample_time.extend(datos.index.get_values()[i-parameters.OUTSAMPLE_PERIOD+1:i])
+        if parameters.STOCK_INDEX_COLUMN_NAME is not None:
+            daily_index_returns = current_index_data.div(current_index_data.shift(1))-1.0
+            daily_index_returns.dropna(inplace=True, how='all')
+            daily_index_returns.fillna(0.0, inplace=True)
 
+        # Portfolio Creation
+        weights = strategy.create_my_strategy(pd.DataFrame(daily_returns.values[:parameters.INSAMPLE_PERIOD]),
+                                              pd.DataFrame(daily_index_returns[:parameters.INSAMPLE_PERIOD]),
+                                              previous_weights)
 
-    # Daily Returns
-    daily_returns = current_data.div(current_data.shift(1))-1
-        #np.log(
-        #current_data.div(current_data.shift(1)))
-    daily_returns.dropna(inplace=True, how='all')
-    daily_returns.fillna(0, inplace=True)
+        overall_outsample_returns.extend(np.matmul(daily_returns.values[parameters.INSAMPLE_PERIOD:, :], weights))
+        overall_index_outsample_returns.extend(daily_index_returns.values[parameters.INSAMPLE_PERIOD:, :].flatten())
 
-    if (parameters.STOCK_INDEX_COLUMN_NAME != None):
-        daily_index_returns = current_index_data.div(current_index_data.shift(1))-1
-            #np.log(
-            #current_index_data.div(current_index_data.shift(1)))
-        daily_index_returns.dropna(inplace=True, how='all')
-        daily_index_returns.fillna(0, inplace=True)
+        if parameters.STOCK_INDEX_COLUMN_NAME is not None:
+            if current_index_data.iat[parameters.INSAMPLE_PERIOD, 0] / current_index_data.iat[0, 0] > 1:
+                up_overall_outsample_returns.extend(np.matmul(daily_returns.values[parameters.INSAMPLE_PERIOD:, :], weights))
+                up_overall_index_outsample_returns.extend(daily_index_returns.values[parameters.INSAMPLE_PERIOD:, :].flatten())
+            else:
+                down_overall_outsample_returns.extend(np.matmul(daily_returns.values[parameters.INSAMPLE_PERIOD:, :], weights))
+                down_overall_index_outsample_returns.extend(daily_index_returns.values[parameters.INSAMPLE_PERIOD:, :].flatten())
 
+        previous_weights = weights
 
-    # Portfolio Creation
-    weights = strategy.create_my_strategy(pd.DataFrame(daily_returns.values[:parameters.INSAMPLE_PERIOD]), pd.DataFrame(daily_index_returns[:parameters.INSAMPLE_PERIOD]), previous_weights)#np.random.rand(datos.shape[1])
-    #weights = weights/np.sum(weights)
-    if (parameters.STOCK_INDEX_COLUMN_NAME == None):
-        # Portfolio Metrics for every outsample window
-        insample_performance.append(
-            metrics.portfolio_performance(weights, daily_returns.values[:parameters.INSAMPLE_PERIOD, :]))
-        outsample_performance.append(
-            metrics.portfolio_performance(weights, daily_returns.values[parameters.INSAMPLE_PERIOD:, :],
-                                          overall_outsample_returns))
+    weights = np.sort(weights)
+    pd.DataFrame(weights, columns=["Weights"]).to_csv(parameters.RESULT_DIRECTORY + "\\Weights.csv")
 
-    else:
-        # Compare portfolio and index metrics for every outsample period
-        insample_statistics, insample_index_statistics = metrics.portfolio_performance_comparison_with_index(weights,
-                                                                                                             daily_returns.values[:parameters.INSAMPLE_PERIOD, :],
-                                                                                                             np.array([1]),
-                                                                                                             daily_index_returns.values[:parameters.INSAMPLE_PERIOD, :])
-        insample_performance.append(insample_statistics)
-        insample_index_performance.append(insample_index_statistics)
+    # Generate graph containing time vs portfolio value to compare portfolio and index portfolio
+    metrics.generate_graph_portfolio_values(
+        overall_outsample_returns, overall_index_outsample_returns,
+        xaxis=overall_outsample_time, title='D' + str(1+parameters.STOCK_NUMBER))
 
-        outsample_statistics, outsample_index_statistics = metrics.portfolio_performance_comparison_with_index(weights,
-                                                                                                               daily_returns.values[parameters.INSAMPLE_PERIOD:,:],
-                                                                                                               np.array([1]),
-                                                                                                               daily_index_returns.values[parameters.INSAMPLE_PERIOD:,:],
-                                                                                                               overall_outsample_returns,
-                                                                                                               overall_index_outsample_returns)
-        outsample_performance.append(outsample_statistics)
-        outsample_index_performance.append(outsample_index_statistics)
+    # Calculate the metrics on a complete return series
+    metrics.calculate_metrics_on_complete_data(overall_outsample_returns, overall_index_outsample_returns, colname="")
+    metrics.calculate_metrics_on_complete_data(up_overall_outsample_returns, up_overall_index_outsample_returns, colname="_up")
+    metrics.calculate_metrics_on_complete_data(down_overall_outsample_returns, down_overall_index_outsample_returns, colname="_down")
 
-    previous_weights = weights
-
-
-# Average portfolio metrics
-metrics.average_metrics(insample_performance)
-metrics.average_metrics(outsample_performance)
-
-
-if (parameters.STOCK_INDEX_COLUMN_NAME != None):
-    metrics.average_metrics(insample_index_performance)
-    metrics.average_metrics(outsample_index_performance)
-
-# Save metrics as csv
-if(parameters.STOCK_INDEX_COLUMN_NAME != None):
-    columns = (metrics.SIMPLE_STAT_FUNCS + metrics.COMPARITIVE_STAT_FUNCS)
-else:
-    columns = (metrics.SIMPLE_STAT_FUNCS)
-metrics.save_list_to_csv(insample_performance, os.path.join(parameters.RESULT_DIRECTORY, parameters.STOCK_INDEX + '_insample.csv'), columns = columns)
-metrics.save_list_to_csv(outsample_performance, os.path.join(parameters.RESULT_DIRECTORY, parameters.STOCK_INDEX + '_outsample.csv'), columns = columns)
-
-columns = (metrics.SIMPLE_STAT_FUNCS)
-if(parameters.STOCK_INDEX_COLUMN_NAME != None):
-    metrics.save_list_to_csv(insample_index_performance, os.path.join(parameters.RESULT_DIRECTORY, parameters.STOCK_INDEX + '_insample_index.csv'), columns = columns)
-    metrics.save_list_to_csv(outsample_index_performance, os.path.join(parameters.RESULT_DIRECTORY, parameters.STOCK_INDEX + '_outsample_index.csv'), columns = columns)
-
-# Generate graph containing time vs portfolio value to compare portfolio and index portfolio
-metrics.generate_graph_portfolio_values(
-    overall_outsample_returns, overall_index_outsample_returns, xaxis = overall_outsample_time, title = parameters.STOCK_INDEX)
+# Call main function
+main()
